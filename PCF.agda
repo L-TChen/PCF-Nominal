@@ -83,27 +83,34 @@ data _⊢_∶_ : Cxt → Term → Type → Set where
 -- closed values
 data Val : Term → Set where
   zero : Val zero
-  suc  : ∀ {n} → Val n → Val (suc n)
-  lam  : ∀ {x e} → Val (ƛ x e)
+  suc  : ∀ {n : Term} → Val n → Val (suc n)
+  lam  : ∀ {x : Name}{e : Term} → Val (ƛ x e)
 
 -- Small-step semantics
 
 infixr 2 _⟼_
 data _⟼_ : Term → Term → Set where
   suc  : ∀ {e₁ e₂}
-          → e₁ ⟼ e₂ → suc e₁ ⟼ suc e₂ 
+          → e₁ ⟼ e₂ 
+          → suc e₁ ⟼ suc e₂ 
+
   appL : ∀ {e₁ e₁' e₂}
           → e₁ ⟼ e₁'
           → e₁ · e₂ ⟼ e₁' · e₂
+
   ifz : ∀ {e e' e₀ n e₁}
         → e ⟼ e'
         → ifz e e₀ n e₁ ⟼ ifz e' e₀ n e₁
+
   app : ∀ {x e₁ e₂}
         → (ƛ x e₁) · e₂ ⟼ [ e₂ / x ] e₁
+
   ifz₀ : ∀ {e₀ e₁ n}
         → ifz zero e₀ n e₁ ⟼ e₀
+
   ifz₁ : ∀ {n e₀ x e₁} → Val (suc n)
         → ifz (suc n) e₀ x e₁ ⟼ [ n / x ] e₁
+
   Y : ∀ {x e}
       → Y x e ⟼ [ (Y x e) / x ] e 
 
@@ -200,12 +207,32 @@ preservation (Y ⊢e) Y = ⊢-subst [] _ _ [] ⊢e (Y ⊢e)
 -- big step semantics 
 data _⇓_ : Term → Term → Set where
   zero : zero ⇓ zero
-  suc  : ∀ {t n} → t ⇓ n → suc t ⇓ suc n
-  Y  : ∀ {x e v} → [(Y x e) / x ] e ⇓ v → Y x e ⇓ v
-  lam  : ∀ {x e} → (ƛ x e) ⇓ (ƛ x e)
-  app  : ∀ {t x e n v} → t ⇓ (ƛ x e) → [ n / x ] e ⇓ v → (t · n) ⇓ v
-  ifz₀ : ∀ {t t₀ n t₁ v} → t ⇓ zero → t₀ ⇓ v → ifz t t₀ n t₁ ⇓ v
-  ifz₁ : ∀ {t n t₀ x t₁ v} → t ⇓ suc n → [ n / x ] t₁ ⇓ v → ifz t t₀ x t₁ ⇓ v
+
+  suc  : ∀ {t n} 
+         → t ⇓ n 
+         → suc t ⇓ suc n
+
+  Y  : ∀ {x e v} 
+       → [(Y x e) / x ] e ⇓ v 
+       → Y x e ⇓ v
+
+  lam  : ∀ {x e} 
+         → (ƛ x e) ⇓ (ƛ x e)
+
+  app  : ∀ {t x e n v}
+         → t ⇓ (ƛ x e) 
+         → [ n / x ] e ⇓ v 
+         → (t · n) ⇓ v
+
+  ifz₀ : ∀ {t t₀ n t₁ v} 
+         → t ⇓ zero 
+         → t₀ ⇓ v 
+         → ifz t t₀ n t₁ ⇓ v
+
+  ifz₁ : ∀ {t n t₀ x t₁ v} 
+         → t ⇓ suc n 
+         → [ n / x ] t₁ ⇓ v 
+         → ifz t t₀ x t₁ ⇓ v
 
 -- if t ⇓ v then v is a closed value. 
 ⇓-Val : ∀ {t v} → t ⇓ v → Val v
@@ -272,7 +299,7 @@ data _⟼*_ : Term → Term → Set where
 ⟼⇓to⇓ (ifz d₁) d₂ = ⟼⇓to⇓ (ifz d₁) d₂
 ⟼⇓to⇓ app d₂ = app lam d₂
 ⟼⇓to⇓ ifz₀ d₂ = ifz₀ zero d₂
-⟼⇓to⇓ (ifz₁ {e} p) d₂ = ifz₁ (v⇓v p) d₂
+⟼⇓to⇓ (ifz₁ p) d₂ = ifz₁ (v⇓v p) d₂
 ⟼⇓to⇓ Y d₂ = Y d₂
 
 ⟼*⇓to⇓ : ∀ {t u v} → t ⟼* u → u ⇓ v → t ⇓ v
