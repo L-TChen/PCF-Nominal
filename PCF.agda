@@ -80,7 +80,7 @@ data _⊢_∶_ : Cxt → Term → Type → Set where
 ... | no  _ =
   ifz ([ f / x ] e) ([ f / x ] e₁) y ([ f / x ] e₂) 
 
--- closed values
+-- Values
 data Val : Term → Set where
   zero : Val zero
   suc  : ∀ {n : Term} → Val n → Val (suc n)
@@ -296,7 +296,8 @@ data _⟼*_ : Term → Term → Set where
 ⟼⇓to⇓ : ∀ {t u v} → t ⟼ u → u ⇓ v → t ⇓ v
 ⟼⇓to⇓ (suc d₁) (suc d₂) = suc (⟼⇓to⇓ d₁ d₂)
 ⟼⇓to⇓ (appL d₁) (app d₂ d₃) = app (⟼⇓to⇓ d₁ d₂) d₃
-⟼⇓to⇓ (ifz d₁) d₂ = ⟼⇓to⇓ (ifz d₁) d₂
+⟼⇓to⇓ (ifz d₁) (ifz₀ d₂ d₃) = ifz₀ (⟼⇓to⇓ d₁ d₂) d₃
+⟼⇓to⇓ (ifz d₁) (ifz₁ d₂ d₃) = ifz₁ (⟼⇓to⇓ d₁ d₂) d₃
 ⟼⇓to⇓ app d₂ = app lam d₂
 ⟼⇓to⇓ ifz₀ d₂ = ifz₀ zero d₂
 ⟼⇓to⇓ (ifz₁ p) d₂ = ifz₁ (v⇓v p) d₂
