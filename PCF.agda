@@ -1,5 +1,15 @@
 module PCF where
 
+{-
+  A formalisation of PCF in Agda 
+    by Shin-Cheng Mu and Liang-Ting Chen
+
+  Abstract. This files formalises Type Safety of PCF
+  and the agreement of the big-step semantics and
+  the one-step semantics.
+-}
+
+open import Data.Nat
 open import Data.Empty using (⊥; ⊥-elim)
 open import Data.Product hiding (map)
 open import Data.Sum
@@ -10,14 +20,12 @@ open import Data.String hiding (_++_) renaming (_≟_ to _≟S_)
 open import Relation.Binary.PropositionalEquality hiding (trans; [_])
 open import Relation.Nullary using (¬_; yes; no)
 
-data Type : Set where
-  nat : Type
-  _⇒_ : Type → Type → Type
+open import Assoc 
 
 Name : Set
 Name = String
 
--- raw terms (typeless) 
+-- Term formation rules 
 data Term : Set where
   var : Name → Term
   ƛ : Name → Term → Term
@@ -27,41 +35,7 @@ data Term : Set where
   suc : Term → Term
   ifz : Term → Term → Name → Term → Term
 
-open import Assoc
-
-Cxt : Set
-Cxt = Assoc Name Type
-
-infixl 0 _⊢_∶_
-
--- Typing rules for PCF
-data _⊢_∶_ : Cxt → Term → Type → Set where
-  var : ∀ {Γ x τ}
-        → (D : DomDist Γ)
-        → (x∈Γ : (x , τ) ∈ Γ) → Γ ⊢ var x ∶ τ
-  ƛ : ∀ {Γ x σ e τ}
-      → (⊢e : (x , σ) ∷ Γ ⊢ e ∶ τ)
-      → Γ ⊢ (ƛ x e) ∶ (σ ⇒ τ)
-  _·_ : ∀ {Γ e₁ e₂ σ τ}
-        → Γ ⊢ e₁ ∶ (σ ⇒ τ) 
-        → Γ ⊢ e₂ ∶ σ
-        → Γ ⊢ (e₁ · e₂) ∶ τ
-  Y : ∀ {Γ x e σ}
-      → (⊢e : (x , σ) ∷ Γ ⊢ e ∶ σ)
-      → Γ ⊢ Y x e ∶ σ
-  zero : ∀ {Γ}
-         → (D : DomDist Γ)
-         → Γ ⊢ zero ∶ nat
-  suc : ∀ {Γ e}
-        → (⊢e : Γ ⊢ e ∶ nat)
-        → Γ ⊢ suc e ∶ nat
-  ifz : ∀ {Γ e e₀ n e₁ τ}
-        → (⊢e : Γ ⊢ e ∶ nat)
-        → (⊢e₀ : Γ ⊢ e₀ ∶ τ)
-        → (⊢e₁ : (n , nat) ∷ Γ ⊢ e₁ ∶ τ)
-        → Γ ⊢ ifz e e₀ n e₁ ∶ τ
-
--- substitution 
+-- (simplified) substitution 
 [_/_] : Term → Name → Term → Term
 [ f / x ] (var y) with x ≟S y
 ... | yes _ = f
@@ -80,13 +54,78 @@ data _⊢_∶_ : Cxt → Term → Type → Set where
 ... | no  _ =
   ifz ([ f / x ] e) ([ f / x ] e₁) y ([ f / x ] e₂) 
 
+infixl 5 _·_
+
+data Type : Set where
+  nat : Type
+  _⇒_ : Type → Type → Type
+
+infixr 5 _⇒_
+
+Cxt : Set
+Cxt = List (Name × Type)
+
+infixl 0 _⊢_∶_
+
+-- Typing rules for PCF
+data _⊢_∶_ : Cxt → Term → Type → Set where
+  var : ∀ {Γ x τ}
+        → (D : DomDist Γ)
+        → (x∈Γ : (x , τ) ∈ Γ)
+        ---------------------- (var)
+        → Γ ⊢ var x ∶ τ
+
+  ƛ : ∀ {Γ x σ e τ}
+      → (x , σ) ∷ Γ ⊢ e ∶ τ
+      ---------------------------- (abs)        
+      → Γ ⊢ ƛ x e ∶ σ ⇒ τ
+
+  _·_ : ∀ {Γ e₁ e₂ σ τ}
+        → Γ ⊢ e₁ ∶ σ ⇒ τ 
+        → Γ ⊢ e₂ ∶ σ
+      ------------------------ (app)
+        → Γ ⊢ e₁ · e₂ ∶ τ
+
+  Y : ∀ {Γ x e σ}
+      → (x , σ) ∷ Γ ⊢ e ∶ σ
+      ---------------------------- (Y)
+      → Γ ⊢ Y x e ∶ σ
+
+  zero : ∀ {Γ}
+         → (D : DomDist Γ)
+        ------------------- (z)
+         → Γ ⊢ zero ∶ nat
+
+  suc : ∀ {Γ e}
+        → Γ ⊢ e ∶ nat
+        -------------------- (s)
+        → Γ ⊢ suc e ∶ nat
+
+  ifz : ∀ {Γ e e₀ n e₁ τ}
+        → Γ ⊢ e ∶ nat
+        → Γ ⊢ e₀ ∶ τ
+        → (n , nat) ∷ Γ ⊢ e₁ ∶ τ
+        ------------------------ (ifz)
+        → Γ ⊢ ifz e e₀ n e₁ ∶ τ
+
 -- Values
 data Val : Term → Set where
-  zero : Val zero
-  suc  : ∀ {n : Term} → Val n → Val (suc n)
-  lam  : ∀ {x : Name}{e : Term} → Val (ƛ x e)
+  zero : 
+        ----------
+         Val zero
+
+  suc  : ∀ {n}
+         → Val n
+        ----------
+         → Val (suc n)
+
+  lam  : ∀ {x e} → 
+        ----------
+         Val (ƛ x e)
 
 -- Small-step semantics
+
+
 
 infixr 2 _⟼_
 data _⟼_ : Term → Term → Set where
@@ -115,8 +154,9 @@ data _⟼_ : Term → Term → Set where
       → Y x e ⟼ [ (Y x e) / x ] e 
 
 -- Well-typed terms don't get stuck! 
-progress : ∀ {e : Term} {τ} → [] ⊢ e ∶ τ
-             → Val e ⊎ (∃ λ e' → e ⟼ e')
+progress : ∀ {e τ} 
+           → [] ⊢ e ∶ τ
+           → Val e ⊎ (∃ λ e' → e ⟼ e')
 progress (var _ ())
 progress (ƛ _) = inj₁ lam
 progress (t · _) with progress t
@@ -134,6 +174,9 @@ progress (ifz (var _ ()) _ _) | inj₁ _
 ... | inj₁ (suc n) = inj₂ (_ , ifz₁ (suc n))
 ... | inj₂ (_ , p) = inj₂ (_ , ifz p)
 
+
+
+-- Beginning of Substitution Lemma 
 postulate 
   ⊢-weaken : ∀ Γ x τ Δ {e σ}
              → x ∉ dom Γ → x ∉ dom Δ
@@ -187,7 +230,9 @@ postulate
 ⊢-subst Γ x τ Δ (zero y) ⊢t = zero (⊢-DD _ ⊢t)
 ⊢-subst Γ x τ Δ (suc ⊢e) ⊢t = suc (⊢-subst Γ x τ Δ ⊢e ⊢t)
 
-preservation : ∀ {e e' : Term} {τ}
+-- the end of Substitution Lemma
+
+preservation : ∀ {e e' τ}
                → [] ⊢ e ∶ τ 
                → e ⟼ e'
                → [] ⊢ e' ∶ τ
@@ -204,7 +249,12 @@ preservation (ifz (suc ⊢e) ⊢e₁ ⊢e₂) (ifz₁ x₁) =
   ⊢-subst [] _ _ [] ⊢e₂ ⊢e
 preservation (Y ⊢e) Y = ⊢-subst [] _ _ [] ⊢e (Y ⊢e)
 
--- big step semantics 
+infixr 2 _⟼*_
+data _⟼*_ : Term → Term → Set where
+  refl  : ∀ {t} → t ⟼* t
+  trans : ∀ {t u v} → t ⟼ u → u ⟼* v → t ⟼* v
+
+ype -- big step semantics 
 data _⇓_ : Term → Term → Set where
   zero : zero ⇓ zero
 
@@ -251,11 +301,8 @@ v⇓v (suc p) = suc (v⇓v p)
 v⇓v lam = lam
 
 -- many step reduction relation
-infixr 2 _⟼*_
 
-data _⟼*_ : Term → Term → Set where
-  refl  : ∀ {t} → t ⟼* t
-  trans : ∀ {t u v} → t ⟼ u → u ⟼* v → t ⟼* v
+
 
 -- ⟼* is reflexive by construction
 -- also it is transitive 
