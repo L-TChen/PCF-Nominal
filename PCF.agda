@@ -71,7 +71,7 @@ infixl 0 _⊢_∶_
 data _⊢_∶_ : Cxt → Term → Type → Set where
   var : ∀ {Γ x τ}
         → (D : DomDist Γ)
-        → (x∈Γ : (x , τ) ∈ Γ)
+        → (x , τ) ∈ Γ
         ---------------------- (var)
         → Γ ⊢ var x ∶ τ
 
@@ -254,7 +254,7 @@ data _⟼*_ : Term → Term → Set where
   refl  : ∀ {t} → t ⟼* t
   trans : ∀ {t u v} → t ⟼ u → u ⟼* v → t ⟼* v
 
-ype -- big step semantics 
+-- big step semantics 
 data _⇓_ : Term → Term → Set where
   zero : zero ⇓ zero
 
