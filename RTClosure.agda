@@ -1,4 +1,4 @@
-module Transitive-Closure where
+module RTClosure where
 
 Rel : Set → Set₁
 Rel A = A → A → Set
