@@ -50,7 +50,7 @@ data Term : Set where
 [ f / x ] zero  = zero
 [ f / x ] (suc e) = suc ([ f / x ] e) 
 [ f / x ] (ifz e e₁ y e₂) with x ≟S y
-... | yes _ = ifz e e₁ y e₂
+... | yes _ = ifz ([ f / x ] e) ([ f / x ] e₁) y e₂
 ... | no  _ =
   ifz ([ f / x ] e) ([ f / x ] e₁) y ([ f / x ] e₂) 
 
@@ -163,7 +163,7 @@ progress (t · _) with progress t
 progress (var _ () · _) | inj₁ _
 ... | inj₁ lam = inj₂ (_ , app)
 ... | (inj₂ (_ , p)) = inj₂ (_ , appL p)
-progress (Y t) = inj₂ (_ , Y)
+progress (Y _) = inj₂ (_ , Y)
 progress (zero _) = inj₁ zero
 progress (suc t) with progress t
 ... | (inj₁ v) = inj₁ (suc v)
@@ -356,3 +356,32 @@ v⇓v lam = lam
 
 ⟼*to⇓ : ∀ {t v} → t ⟼* v → Val v → t ⇓ v
 ⟼*to⇓ d val = ⟼*⇓to⇓ d (v⇓v val)
+
+Ω : ∀ x → Term
+Ω x = Y x (var x)
+
+-- Just do induction on the derivation of Ω ⇓ V
+-- and use the induction hypothesis direclty 
+Ω-divergent : ∀ {x} → ¬ ∃ λ V → (Ω x ⇓ V)
+Ω-divergent {x} (proj₁ , Y proj₃) with x ≟S x 
+Ω-divergent (proj₁     , Y proj₃) | yes refl =
+  Ω-divergent (proj₁   , proj₃)
+Ω-divergent (proj₁     , Y proj₃) | no ¬p = ⊥-elim (¬p refl)
+
+-- Or, show that Ω only reduces to itself
+Ω-only : ∀ {x t} → Ω x ⟼* t → t ≡ Ω x
+Ω-only refl = refl
+Ω-only {x} (trans Y _) with x ≟S x 
+Ω-only (trans Y t₁) | yes p = Ω-only t₁
+Ω-only (trans Y _)  | no ¬p = ⊥-elim (¬p refl)
+
+-- Moreover, Ω is not a value
+Ω-¬Val : ∀ {x} →  ¬ Val (Ω x)
+Ω-¬Val ()
+
+-- Translate the big-step semantics to many-step semantics
+-- By Ω-only, V must be Ω
+-- Then, by Ω-¬Val, Ω is not a value, so we reach a contradiction. 
+Ω-divergent₂ : ∀ {x} → ¬ ∃ λ V → Ω x ⇓ V
+Ω-divergent₂ (V , t ) with Ω-only (⇓to⟼* t)
+Ω-divergent₂ (._ , t) | refl = Ω-¬Val (⇓-Val t)
